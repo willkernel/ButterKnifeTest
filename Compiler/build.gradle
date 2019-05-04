@@ -1,0 +1,16 @@
+apply plugin: 'java-library'
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    //引入注解
+    implementation project(':Annotation')
+    //触发注解处理器 需要用谷歌的服务
+    implementation 'com.google.auto.service:auto-service:1.0-rc2'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+
+sourceCompatibility = "8"
+targetCompatibility = "8"
