@@ -12,5 +12,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)//注解作用在方法上
 @Retention(RetentionPolicy.CLASS)
 public @interface OnLongClick {
-    int value();
+    int[] value();
 }

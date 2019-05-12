@@ -16,6 +16,8 @@ import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
+import javax.annotation.processing.Messager;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
@@ -23,6 +25,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
 
 /**
@@ -36,14 +40,26 @@ import javax.tools.JavaFileObject;
  * getReturnType()获取方法元素的返回值
  * getConstantValue()如果属性变量被final修饰，则可以使用该方法获取它的值
  */
-@AutoService(Processor.class)
+@AutoService(Processor.class)//触发注解处理器
 public class ButterKnifeProcess extends AbstractProcessor {
+    private Messager messager;// 报告错误,警告,其他提示信息
+    private Elements elementsUtils;//操作element 工具方法
+    private Filer filer;// 创建新的源文件,class文件以及辅助文件
+    private Types typesUtils;//types中包含用于操作typemirror的工具方法
+
+    @Override
+    public synchronized void init(ProcessingEnvironment processingEnvironment) {
+        super.init(processingEnvironment);
+        elementsUtils = processingEnvironment.getElementUtils();
+        filer = processingEnvironment.getFiler();
+    }
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
         Set<String> types = new LinkedHashSet<>();
         // 获取支持BindView注解的类型
         types.add(BindView.class.getCanonicalName());
+        types.add(OnClick.class.getCanonicalName());
         return types;
     }
 
@@ -157,8 +173,8 @@ public class ButterKnifeProcess extends AbstractProcessor {
                 // 第一行生成包
                 writer.write("package " + packageName + ";\n");
                 // 第二行生成要导入的接口类（必须手动导入）
-                writer.write("import com.netease.butterknife.library.ViewBinder;\n");
-                writer.write("import com.netease.butterknife.library.DebouncingOnClickListener;\n");
+                writer.write("import com.willkernel.butterknifelibrary.ViewBinder;\n");
+                writer.write("import com.willkernel.butterknifelibrary.DebouncingOnClickListener;\n");
                 writer.write("import android.view.View;\n");
 //                writer.write("import android.util.Log;\n");
 //                writer.write("// 彭老师到此一游！\n");
@@ -195,17 +211,19 @@ public class ButterKnifeProcess extends AbstractProcessor {
                         // 获取方法的注解
                         OnClick onClick = executableElement.getAnnotation(OnClick.class);
                         // 获取方法注解的id值
-                        int id = onClick.value();
+                        int[] ids = onClick.value();
                         // 获取方法参数
                         List<? extends VariableElement> parameters = executableElement.getParameters();
 
                         // 生成点击事件
-                        writer.write("target.findViewById(" + id + ").setOnClickListener(new DebouncingOnClickListener() {\n");
-                        writer.write("public void doClick(View view) {\n");
-                        if (parameters.isEmpty()) {
-                            writer.write("target." + methodName + "();\n}\n});\n");
-                        } else {
-                            writer.write("target." + methodName + "(view);\n}\n});\n");
+                        for (int id : ids) {
+                            writer.write("target.findViewById(" + id + ").setOnClickListener(new DebouncingOnClickListener() {\n");
+                            writer.write("public void doClick(View view) {\n");
+                            if (parameters.isEmpty()) {
+                                writer.write("target." + methodName + "();\n}\n});\n");
+                            } else {
+                                writer.write("target." + methodName + "(view);\n}\n});\n");
+                            }
                         }
                     }
                 }
@@ -219,19 +237,21 @@ public class ButterKnifeProcess extends AbstractProcessor {
                         // 获取方法的注解
                         OnLongClick onLongClick = executableElement.getAnnotation(OnLongClick.class);
                         // 获取方法注解的id值
-                        int id = onLongClick.value();
+                        int[] ids = onLongClick.value();
                         // 获取方法参数
                         List<? extends VariableElement> parameters = executableElement.getParameters();
 
-                        // 生成长按事件
-                        writer.write("target.findViewById(" + id + ").setOnLongClickListener(new View.OnLongClickListener() {\n");
-                        writer.write("public boolean onLongClick(View view) {\n");
-                        if (parameters.isEmpty()) {
-                            writer.write("target." + methodName + "();\n");
-                            writer.write("return true;\n}\n});\n");
-                        } else {
-                            writer.write("target." + methodName + "(view);\n");
-                            writer.write("return true;\n}\n});\n");
+                        for (int id : ids) {
+                            // 生成长按事件
+                            writer.write("target.findViewById(" + id + ").setOnLongClickListener(new View.OnLongClickListener() {\n");
+                            writer.write("public boolean onLongClick(View view) {\n");
+                            if (parameters.isEmpty()) {
+                                writer.write("target." + methodName + "();\n");
+                                writer.write("return true;\n}\n});\n");
+                            } else {
+                                writer.write("target." + methodName + "(view);\n");
+                                writer.write("return true;\n}\n});\n");
+                            }
                         }
                     }
                 }
@@ -304,175 +324,3 @@ public class ButterKnifeProcess extends AbstractProcessor {
         return packageName;
     }
 }
-
-
-//@AutoService(Processor.class)//触发注解处理器,生成java文件
-//public class ButterKnifeProcess extends AbstractProcessor {
-//    private Messager messager;// 报告错误,警告,其他提示信息
-//    private Elements elementsUtils;//操作element 工具方法
-//    private Filer filer;// 创建新的源文件,class文件以及辅助文件
-//    private Types typesUtils;//types中包含用于操作typemirror的工具方法
-//
-//    @Override
-//    public synchronized void init(ProcessingEnvironment processingEnvironment) {
-//        super.init(processingEnvironment);
-//        elementsUtils = processingEnvironment.getElementUtils();
-//        filer = processingEnvironment.getFiler();
-//    }
-//
-//    @Override
-//    public Set<String> getSupportedAnnotationTypes() {
-//        //添加支持bindview 和onclick注解的类型
-//        Set<String> types = new LinkedHashSet<>();
-//        types.add(BindView.class.getCanonicalName());
-//        types.add(OnClick.class.getCanonicalName());
-//        return types;
-//    }
-//
-//    @Override
-//    public SourceVersion getSupportedSourceVersion() {
-//        //返回支持的Processor版本,可以通过@SupportedSourceVersion 设置
-//        return SourceVersion.latest();
-//    }
-//
-//    @Override
-//    public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
-//        System.out.println("process start ....");
-//        //获取Activity 中所有bindview注解的属性
-//        Set<? extends Element> bindViewSet = roundEnvironment.getElementsAnnotatedWith(BindView.class);
-//        //key :  "com.xxx.activity"
-//        //value: 所有bindview注解的属性
-//        Map<String, List<VariableElement>> bindViewMap = new HashMap<>();
-//        for (Element element : bindViewSet) {
-//            //转成原始属性元素(结果体元素)
-//            VariableElement variableElement = (VariableElement) element;
-//            String activityName = getActivityName(variableElement);
-//            List<VariableElement> list = bindViewMap.get(activityName);
-//            if (list == null) {
-//                list = new ArrayList<>();
-//                bindViewMap.put(activityName, list);
-//            }
-//            list.add(variableElement);
-//        }
-//
-//        //------------------onClick-------------------
-//        //获取Activity 中所有bindview注解的属性
-//        Set<? extends Element> onClickSet = roundEnvironment.getElementsAnnotatedWith(OnClick.class);
-//        //key :  "com.xxx.activity"
-//        //value: 所有bindview注解的属性
-//        Map<String, List<ExecutableElement>> onClickMap = new HashMap<>();
-//
-//        for (Element element : onClickSet) {
-//            //转成原始属性元素(结果体元素)
-//            ExecutableElement executableElement = (ExecutableElement) element;
-//            String activityName = getActivityName(executableElement);
-//            List<ExecutableElement> list = onClickMap.get(activityName);
-//            if (list == null) {
-//                list = new ArrayList<>();
-//                onClickMap.put(activityName, list);
-//            }
-//            list.add(executableElement);
-//        }
-//
-//
-//        //------------------造币器-------------------
-//        for (String activityName : bindViewMap.keySet()) {
-//            List<VariableElement> variableElements = bindViewMap.get(activityName);
-//            List<ExecutableElement> clickElements = onClickMap.get(activityName);
-//
-//
-//            try {
-//                //创建一个新的class,返回一个可写入的对象
-//                JavaFileObject javaFileObject = filer.createSourceFile(activityName + "$ViewBinder");
-//                String packageName = getPackageName(variableElements.get(0));
-//                Writer writer = javaFileObject.openWriter();
-//
-//                String simpleName = variableElements.get(0).getEnclosingElement().getSimpleName().toString()
-//                        + "$ViewBinder";
-//                //生成包
-//                writer.write("package " + packageName + ";\n");
-//                //导入接口类
-//                writer.write("import com.willkernel.butterknifelibrary.ViewBinder;\n");
-//                writer.write("import com.willkernel.butterknifelibrary.DebouncingOnClickListener;\n");
-//                writer.write("import android.view.View;\n");
-//                writer.write("import android.util.Log;\n");
-//
-//                //生成类 MainActivity$ViewBinder
-//                writer.write("public class " + simpleName + " implements ViewBinder<" + activityName + ">{\n");
-//                writer.write("public void bind(final  " + activityName + " target{\n");
-//
-//
-//                //生成属性
-//                for (VariableElement element : variableElements) {
-//                    //获取控件的属性名
-//                    String fieldName = element.getSimpleName().toString();
-//                    //获取控件的注解
-//                    BindView bindView = element.getAnnotation(BindView.class);
-//                    //控件注解的id
-//                    int id = bindView.value();
-//                    //target.tv=target.findViewById(xxx);
-//                    writer.write("target." + fieldName + " = " + "target.findViewById(" + id + ");\n");
-//                }
-//
-//                writer.write("for(int i=0;i<10;i++{\n");
-//                writer.write("Log.e(\"wk>>>\",\"i=\"+i);\n}\n");
-//
-//                //生成方法
-//                for (ExecutableElement executableElement : clickElements) {
-//                    //获取控件的属性名
-//                    String methodName = executableElement.getSimpleName().toString();
-//                    //获取控件的注解
-//                    OnClick onClick = executableElement.getAnnotation(OnClick.class);
-//                    //控件注解的id
-//                    int id = onClick.value();
-//                    List<? extends VariableElement> parameters = executableElement.getParameters();
-//
-//                    //生成点击事件
-//                    writer.write("target.findViewById(" + id + ").setOnClickListener(new DebouncingOnClickListener(){\n");
-//                    writer.write("public void doClick(View view){\n");
-//                    if (parameters.isEmpty()) {
-//                        writer.write("target." + methodName + "();\n}\n});\n");
-//
-//                    } else {
-//                        writer.write("target." + methodName + "(view);\n}\n});\n");
-//                    }
-//                }
-//
-//                writer.write("\n}\n}");
-//                System.out.println("done-----------------");
-//                writer.close();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        return false;
-//    }
-//
-//    //通过属性获取类名,再通过类名获取包名
-//    private String getActivityName(VariableElement variableElement) {
-//        String packageName = getPackageName(variableElement);
-//        TypeElement typeElement = (TypeElement) variableElement.getEnclosingElement();
-//        return packageName + "." + typeElement.getSimpleName().toString();
-//    }
-//
-//    private String getPackageName(VariableElement variableElement) {
-//        TypeElement typeElement = (TypeElement) variableElement.getEnclosingElement();
-//        String packageName = elementsUtils.getPackageOf(typeElement).getQualifiedName().toString();
-//        System.out.println("package>>>" + packageName);
-//        return packageName;
-//    }
-//
-//    //通过方法获取类名,再通过类名获取包名
-//    private String getActivityName(ExecutableElement executableElement) {
-//        String packageName = getPackageName(executableElement);
-//        TypeElement typeElement = (TypeElement) executableElement.getEnclosingElement();
-//        return packageName + "." + typeElement.getSimpleName().toString();
-//    }
-//
-//    private String getPackageName(ExecutableElement executableElement) {
-//        TypeElement typeElement = (TypeElement) executableElement.getEnclosingElement();
-//        String packageName = elementsUtils.getPackageOf(typeElement).getQualifiedName().toString();
-//        System.out.println("package>>>" + packageName);
-//        return packageName;
-//    }
-//}

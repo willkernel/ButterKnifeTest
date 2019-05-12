@@ -8,6 +8,7 @@ import android.app.Activity;
  */
 public class ButterKnife {
     public static void bind(Activity activity) {
+        //MainActivity$ViewBinder
         String clzName=activity.getClass().getName()+"$ViewBinder";
         try {
             Class clz=Class.forName(clzName);
